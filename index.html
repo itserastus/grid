@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pulsing Retro Wireframe with LFO & Toggle Controls</title>
+  <style>
+    /* Fill the screen with a black background */
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+    
+    /* Control panel overlay (simple but with character) */
+    #controls {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 10px;
+      color: #fff;
+      font-family: sans-serif;
+      font-size: 14px;
+      z-index: 100;
+      border: 1px solid #444;
+      border-radius: 4px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    #controls label {
+      display: block;
+      margin: 5px 0;
+    }
+    #controls input[type="range"] {
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <!-- Control panel -->
+  <div id="controls">
+    <!-- Toggle button for switching between MIDI and GUI modes -->
+    <button id="toggleMode">Switch to GUI Mode</button>
+    <div id="modeInfo">
+      <p>Current mode: <span id="currentMode">MIDI</span></p>
+      <p>If using MIDI, plug in your controller. Otherwise, switch to GUI mode.</p>
+    </div>
+    <!-- GUI controls: hidden by default (only shown in GUI mode) -->
+    <div id="guiControls" style="display: none;">
+      <label>Wave Speed (CC35):
+        <input type="range" id="waveSpeedSlider" min="0" max="127" value="64">
+        <input type="number" id="waveSpeedInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
+      </label>
+      <label>Wave Amplitude (CC36):
+        <input type="range" id="waveAmpSlider" min="0" max="127" value="64">
+        <input type="number" id="waveAmpInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
+      </label>
+      <label>Line Thickness (CC37):
+        <input type="range" id="lineWidthSlider" min="0" max="127" value="64">
+        <input type="number" id="lineWidthInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
+      </label>
+      <label>Grid Rotation (CC38):
+        <input type="range" id="gridRotationSlider" min="0" max="127" value="64">
+        <input type="number" id="gridRotationInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
+      </label>
+      <label>Grid Density (CC39):
+        <input type="range" id="gridDensitySlider" min="0" max="127" value="64">
+        <input type="number" id="gridDensityInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
+      </label>
+      <label>Horizontal Offset (CC40):
+        <input type="range" id="xOffsetSlider" min="0" max="127" value="64">
+        <input type="number" id="xOffsetInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
+      </label>
+      <label>Vertical Offset (CC41):
+        <input type="range" id="yOffsetSlider" min="0" max="127" value="64">
+        <input type="number" id="yOffsetInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
+      </label>
+      <label>Base Hue (CC42):
+        <input type="range" id="hueSlider" min="0" max="127" value="64">
+        <input type="number" id="hueInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
+        <input type="text" id="hueHexInput" placeholder="#RRGGBB" style="width:70px; margin-left:5px;">
+      </label>
+    </div>
+    <!-- LFO controls (always available) -->
+    <fieldset style="margin-top: 10px; border: 1px solid #555; padding: 5px;">
+      <legend>LFO Controls</legend>
+      <label>
+        <input type="checkbox" id="lfoEnabled"> Enable LFO (modulates hue)
+      </label>
+      <label>LFO Rate:
+        <input type="range" id="lfoRateSlider" min="0" max="127" value="64">
+      </label>
+      <label>LFO Depth:
+        <input type="range" id="lfoDepthSlider" min="0" max="127" value="0">
+      </label>
+      <p style="font-size: 11px; margin-top: 5px;">
+        LFO Rate mapped to 0.1–2.0 Hz; LFO Depth mapped to 0–50° hue offset.
+      </p>
+    </fieldset>
+    <!-- FX Controls -->
+    <fieldset style="margin-top: 10px; border: 1px solid #555; padding: 5px;">
+      <legend>FX Controls</legend>
+      <label>
+        <input type="checkbox" id="glowEnabled"> Enable Glow
+      </label>
+      <label>Glow Intensity:
+        <input type="range" id="glowIntensitySlider" min="0" max="50" value="0">
+        <input type="number" id="glowIntensityInput" min="0" max="50" value="0" style="width:50px; margin-left:5px;">
+      </label>
+      <label>
+        <input type="checkbox" id="noiseEnabled"> Enable Noise Distortion
+      </label>
+      <label>Noise Intensity:
+        <input type="range" id="noiseIntensitySlider" min="0" max="20" value="0">
+        <input type="number" id="noiseIntensityInput" min="0" max="20" value="0" style="width:50px; margin-left:5px;">
+      </label>
+    </fieldset>
+  </div>
+
+  <!-- Full-screen canvas -->
+  <canvas id="canvas"></canvas>
+  
+  <script>
+    // Grab canvas and set up context
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    // --- Control modes ---
+    // Default mode is MIDI.
+    // In MIDI mode, parameter values come from MIDI CC messages.
+    // In GUI mode they come from on-screen sliders.
+    let controlMode = "MIDI";
+    const toggleButton = document.getElementById("toggleMode");
+    const guiControls = document.getElementById("guiControls");
+    const currentModeElem = document.getElementById("currentMode");
+
+    toggleButton.addEventListener("click", () => {
+      if (controlMode === "MIDI") {
+        controlMode = "GUI";
+        guiControls.style.display = "block";
+        toggleButton.textContent = "Switch to MIDI Mode";
+      } else {
+        controlMode = "MIDI";
+        guiControls.style.display = "none";
+        toggleButton.textContent = "Switch to GUI Mode";
+      }
+      currentModeElem.textContent = controlMode;
+    });
+
+    // --- MIDI Setup ---
+    // Default values for CCs 35-42 (if no messages arrive, we’re not left in the lurch)
+    const midiCCValues = {};
+    for (let cc = 35; cc <= 42; cc++) {
+      midiCCValues[cc] = 64;
+    }
+    if (navigator.requestMIDIAccess) {
+      navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+    } else {
+      console.log("WebMIDI is not supported. Stick with the GUI, old-timer.");
+    }
+    function onMIDISuccess(midiAccess) {
+      for (let input of midiAccess.inputs.values()) {
+        input.onmidimessage = getMIDIMessage;
+      }
+    }
+    function onMIDIFailure() {
+      console.log("Failed to access MIDI devices. Check your cables or your fate.");
+    }
+    function getMIDIMessage(message) {
+      // Look for MIDI Control Change messages (0xB0)
+      if ((message.data[0] & 0xF0) === 0xB0) {
+        const cc = message.data[1];
+        const value = message.data[2];
+        if (cc >= 35 && cc <= 42) {
+          midiCCValues[cc] = value;
+        }
+      }
+    }
+
+    // --- Utility function: map one range to another ---
+    function mapRange(value, inMin, inMax, outMin, outMax) {
+      return outMin + ((value - inMin) / (inMax - inMin)) * (outMax - outMin);
+    }
+
+    // Camera distance for a simple perspective projection
+    const cameraZ = 500;
+
+    // --- Animation Loop ---
+    function animate(time) {
+      const t = time / 1000; // seconds
+
+      // Retrieve parameter values depending on control mode.
+      // Values are in the MIDI range (0–127) and then mapped.
+      let cc35, cc36, cc37, cc38, cc39, cc40, cc41, cc42;
+      if (controlMode === "GUI") {
+        cc35 = parseInt(document.getElementById("waveSpeedSlider").value);
+        cc36 = parseInt(document.getElementById("waveAmpSlider").value);
+        cc37 = parseInt(document.getElementById("lineWidthSlider").value);
+        cc38 = parseInt(document.getElementById("gridRotationSlider").value);
+        cc39 = parseInt(document.getElementById("gridDensitySlider").value);
+        cc40 = parseInt(document.getElementById("xOffsetSlider").value);
+        cc41 = parseInt(document.getElementById("yOffsetSlider").value);
+        cc42 = parseInt(document.getElementById("hueSlider").value);
+      } else {
+        // In MIDI mode, use incoming MIDI CC values (or default 64)
+        cc35 = midiCCValues[35] !== undefined ? midiCCValues[35] : 64;
+        cc36 = midiCCValues[36] !== undefined ? midiCCValues[36] : 64;
+        cc37 = midiCCValues[37] !== undefined ? midiCCValues[37] : 64;
+        cc38 = midiCCValues[38] !== undefined ? midiCCValues[38] : 64;
+        cc39 = midiCCValues[39] !== undefined ? midiCCValues[39] : 64;
+        cc40 = midiCCValues[40] !== undefined ? midiCCValues[40] : 64;
+        cc41 = midiCCValues[41] !== undefined ? midiCCValues[41] : 64;
+        cc42 = midiCCValues[42] !== undefined ? midiCCValues[42] : 64;
+      }
+
+      // Map the raw CC values to our desired parameter ranges.
+      const waveSpeed    = mapRange(cc35, 0, 127, 0.5, 3.0);
+      const waveAmp      = mapRange(cc36, 0, 127, 10, 100);
+      const lineWidth    = mapRange(cc37, 0, 127, 0.5, 5);
+      const gridRotation = mapRange(cc38, 0, 127, -Math.PI, Math.PI);
+      const gridDensity  = Math.floor(mapRange(cc39, 0, 127, 10, 50));
+      const xOffset      = mapRange(cc40, 0, 127, -canvas.width / 4, canvas.width / 4);
+      const yOffset      = mapRange(cc41, 0, 127, -canvas.height / 4, canvas.height / 4);
+      // Base hue (from CC42) before LFO modulation
+      let baseHue = mapRange(cc42, 0, 127, 0, 360);
+
+      // --- LFO modulation (always read from GUI controls) ---
+      const lfoEnabled = document.getElementById("lfoEnabled").checked;
+      const lfoRateVal = parseInt(document.getElementById("lfoRateSlider").value);
+      const lfoDepthVal = parseInt(document.getElementById("lfoDepthSlider").value);
+      const lfoRate = mapRange(lfoRateVal, 0, 127, 0.1, 2.0);
+      const lfoDepth = mapRange(lfoDepthVal, 0, 127, 0, 50);
+      if (lfoEnabled) {
+        // Modulate the base hue with the LFO—a neat little sine-based offset.
+        baseHue = (baseHue + lfoDepth * Math.sin(t * lfoRate) + 360) % 360;
+      }
+
+      const hueHex = document.getElementById("hueHexInput").value.trim();
+      const useHex = hueHex !== "" && /^#([0-9A-Fa-f]{6})$/.test(hueHex);
+
+      // Clear the canvas
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Set drawing style
+      if (useHex) {
+        ctx.strokeStyle = hueHex;
+      } else {
+        ctx.strokeStyle = "hsl(" + baseHue + ", 80%, 50%)";
+      }
+
+      // Glow FX setup
+      if(document.getElementById("glowEnabled").checked){
+        let glowIntensity = parseInt(document.getElementById("glowIntensitySlider").value);
+        ctx.shadowBlur = glowIntensity;
+        ctx.shadowColor = useHex ? hueHex : "hsl(" + baseHue + ", 80%, 50%)";
+      } else {
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = "transparent";
+      }
+
+      // Define the physical size of our grid
+      const gridSize = 400;
+      const halfGrid = gridSize / 2;
+      const spacing = gridSize / (gridDensity - 1);
+
+      // Precompute cosine and sine for grid rotation.
+      const cosR = Math.cos(gridRotation);
+      const sinR = Math.sin(gridRotation);
+
+      // Calculate grid points with a wave function for a retro pulsing effect.
+      const gridPoints = [];
+      for (let i = 0; i < gridDensity; i++) {
+        gridPoints[i] = [];
+        for (let j = 0; j < gridDensity; j++) {
+          // Compute grid coordinates centered at (0,0)
+          const x = -halfGrid + j * spacing;
+          const y = -halfGrid + i * spacing;
+          
+          // Rotate the grid point
+          const xRot = x * cosR - y * sinR;
+          const yRot = x * sinR + y * cosR;
+          
+          // Use a radial sine wave for z displacement
+          const dist = Math.sqrt(xRot * xRot + yRot * yRot);
+          const waveFactor = 0.05;
+          const z = waveAmp * Math.sin(dist * waveFactor - t * waveSpeed);
+          
+          // Apply a simple perspective projection
+          const factor = cameraZ / (cameraZ + z);
+          let screenX = xRot * factor + canvas.width / 2 + xOffset;
+          let screenY = yRot * factor + canvas.height / 2 + yOffset;
+
+          if(document.getElementById("noiseEnabled").checked){
+            let noiseIntensity = parseFloat(document.getElementById("noiseIntensitySlider").value);
+            screenX += (Math.random() * 2 - 1) * noiseIntensity;
+            screenY += (Math.random() * 2 - 1) * noiseIntensity;
+          }
+          
+          gridPoints[i][j] = { x: screenX, y: screenY };
+        }
+      }
+      
+      // Draw horizontal grid lines
+      for (let i = 0; i < gridDensity; i++) {
+        ctx.beginPath();
+        for (let j = 0; j < gridDensity; j++) {
+          if (j === 0) {
+            ctx.moveTo(gridPoints[i][j].x, gridPoints[i][j].y);
+          } else {
+            ctx.lineTo(gridPoints[i][j].x, gridPoints[i][j].y);
+          }
+        }
+        ctx.stroke();
+      }
+      
+      // Draw vertical grid lines
+      for (let j = 0; j < gridDensity; j++) {
+        ctx.beginPath();
+        for (let i = 0; i < gridDensity; i++) {
+          if (i === 0) {
+            ctx.moveTo(gridPoints[i][j].x, gridPoints[i][j].y);
+          } else {
+            ctx.lineTo(gridPoints[i][j].x, gridPoints[i][j].y);
+          }
+        }
+        ctx.stroke();
+      }
+      
+      // Request the next frame—a steady beat for our retro visuals.
+      requestAnimationFrame(animate);
+    }
+
+    // Sync sliders with manual numeric inputs for GUI controls
+    function syncSliderAndInput(sliderId, inputId) {
+      const slider = document.getElementById(sliderId);
+      const input = document.getElementById(inputId);
+      slider.addEventListener('input', () => { input.value = slider.value; });
+      input.addEventListener('input', () => { slider.value = input.value; });
+    }
+
+    syncSliderAndInput('waveSpeedSlider', 'waveSpeedInput');
+    syncSliderAndInput('waveAmpSlider', 'waveAmpInput');
+    syncSliderAndInput('lineWidthSlider', 'lineWidthInput');
+    syncSliderAndInput('gridRotationSlider', 'gridRotationInput');
+    syncSliderAndInput('gridDensitySlider', 'gridDensityInput');
+    syncSliderAndInput('xOffsetSlider', 'xOffsetInput');
+    syncSliderAndInput('yOffsetSlider', 'yOffsetInput');
+    syncSliderAndInput('hueSlider', 'hueInput');
+    syncSliderAndInput('glowIntensitySlider', 'glowIntensityInput');
+    syncSliderAndInput('noiseIntensitySlider', 'noiseIntensityInput');
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>111
