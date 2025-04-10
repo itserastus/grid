@@ -8,7 +8,7 @@
     body { margin: 0; overflow: hidden; background: black; }
     canvas { display: block; }
     
-    /* Control panel overlay (simple but with character) */
+    /* Control panel overlay */
     #controls {
       position: fixed;
       top: 10px;
@@ -110,6 +110,19 @@
       <label>Noise Intensity:
         <input type="range" id="noiseIntensitySlider" min="0" max="20" value="0">
         <input type="number" id="noiseIntensityInput" min="0" max="20" value="0" style="width:50px; margin-left:5px;">
+      </label>
+    </fieldset>
+    <!-- Display Controls -->
+    <fieldset style="margin-top: 10px; border: 1px solid #555; padding: 5px;">
+      <legend>Display Controls</legend>
+      <label>Background Hue:
+        <input type="range" id="bgHueSlider" min="0" max="127" value="0">
+        <input type="number" id="bgHueInput" min="0" max="127" value="0" style="width:50px; margin-left:5px;">
+        <input type="text" id="bgHueHexInput" placeholder="#RRGGBB" style="width:70px; margin-left:5px;">
+      </label>
+      <label>Grid Scale:
+        <input type="range" id="gridScaleSlider" min="0" max="127" value="64">
+        <input type="number" id="gridScaleInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
       </label>
     </fieldset>
   </div>
@@ -241,8 +254,22 @@
       const hueHex = document.getElementById("hueHexInput").value.trim();
       const useHex = hueHex !== "" && /^#([0-9A-Fa-f]{6})$/.test(hueHex);
 
-      // Clear the canvas
-      ctx.fillStyle = "black";
+      // Display Controls: background hue and grid scale.
+      const bgHueVal = parseInt(document.getElementById("bgHueSlider").value);
+      const bgHueHex = document.getElementById("bgHueHexInput").value.trim();
+      const useBgHex = bgHueHex !== "" && /^#([0-9A-Fa-f]{6})$/.test(bgHueHex);
+      let bgColor;
+      if(useBgHex) {
+        bgColor = bgHueHex;
+      } else {
+        const bgHueDegrees = mapRange(bgHueVal, 0, 127, 0, 360);
+        bgColor = "hsl(" + bgHueDegrees + ", 50%, 10%)";
+      }
+      const gridScaleVal = parseInt(document.getElementById("gridScaleSlider").value);
+      const scaledGridSize = mapRange(gridScaleVal, 0, 127, 100, 800);
+
+      // Clear the canvas with the new background color
+      ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Set drawing style
@@ -251,6 +278,7 @@
       } else {
         ctx.strokeStyle = "hsl(" + baseHue + ", 80%, 50%)";
       }
+      ctx.lineWidth = lineWidth;
 
       // Glow FX setup
       if(document.getElementById("glowEnabled").checked){
@@ -262,8 +290,8 @@
         ctx.shadowColor = "transparent";
       }
 
-      // Define the physical size of our grid
-      const gridSize = 400;
+      // Define the physical size of our grid using the scaled grid size
+      const gridSize = scaledGridSize;
       const halfGrid = gridSize / 2;
       const spacing = gridSize / (gridDensity - 1);
 
@@ -352,8 +380,10 @@
     syncSliderAndInput('hueSlider', 'hueInput');
     syncSliderAndInput('glowIntensitySlider', 'glowIntensityInput');
     syncSliderAndInput('noiseIntensitySlider', 'noiseIntensityInput');
+    syncSliderAndInput('bgHueSlider', 'bgHueInput');
+    syncSliderAndInput('gridScaleSlider', 'gridScaleInput');
 
     requestAnimationFrame(animate);
   </script>
 </body>
-</html>111
+</html>
