@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Pulsing Retro Wireframe with LFO & Toggle Controls</title>
+  <title>Pulsing Retro Wireframe + DJ Logo</title>
   <style>
     /* Fill the screen with a black background */
-    body { margin: 0; overflow: hidden; background: black; }
+    body { margin: 0; overflow: hidden; background: #333333; }
     canvas { display: block; }
     
     /* Control panel overlay */
@@ -34,16 +34,16 @@
   </style>
 </head>
 <body>
-  <!-- Control panel -->
   <div id="controls">
-    <!-- Toggle button for switching between MIDI and GUI modes -->
     <button id="toggleMode">Switch to GUI Mode</button>
     <div id="modeInfo">
       <p>Current mode: <span id="currentMode">MIDI</span></p>
       <p>If using MIDI, plug in your controller. Otherwise, switch to GUI mode.</p>
     </div>
+    
     <!-- GUI controls: hidden by default (only shown in GUI mode) -->
     <div id="guiControls" style="display: none;">
+      <!-- The usual 8 CC parameters -->
       <label>Wave Speed (CC35):
         <input type="range" id="waveSpeedSlider" min="0" max="127" value="64">
         <input type="number" id="waveSpeedInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
@@ -78,12 +78,10 @@
         <input type="text" id="hueHexInput" placeholder="#RRGGBB" style="width:70px; margin-left:5px;">
       </label>
     </div>
-    <!-- LFO controls (always available) -->
+    <!-- LFO controls (always shown) -->
     <fieldset style="margin-top: 10px; border: 1px solid #555; padding: 5px;">
       <legend>LFO Controls</legend>
-      <label>
-        <input type="checkbox" id="lfoEnabled"> Enable LFO (modulates hue)
-      </label>
+      <label><input type="checkbox" id="lfoEnabled"> Enable LFO (modulates hue)</label>
       <label>LFO Rate:
         <input type="range" id="lfoRateSlider" min="0" max="127" value="64">
       </label>
@@ -97,16 +95,12 @@
     <!-- FX Controls -->
     <fieldset style="margin-top: 10px; border: 1px solid #555; padding: 5px;">
       <legend>FX Controls</legend>
-      <label>
-        <input type="checkbox" id="glowEnabled"> Enable Glow
-      </label>
+      <label><input type="checkbox" id="glowEnabled"> Enable Glow</label>
       <label>Glow Intensity:
         <input type="range" id="glowIntensitySlider" min="0" max="50" value="0">
         <input type="number" id="glowIntensityInput" min="0" max="50" value="0" style="width:50px; margin-left:5px;">
       </label>
-      <label>
-        <input type="checkbox" id="noiseEnabled"> Enable Noise Distortion
-      </label>
+      <label><input type="checkbox" id="noiseEnabled"> Enable Noise Distortion</label>
       <label>Noise Intensity:
         <input type="range" id="noiseIntensitySlider" min="0" max="20" value="0">
         <input type="number" id="noiseIntensityInput" min="0" max="20" value="0" style="width:50px; margin-left:5px;">
@@ -125,9 +119,24 @@
         <input type="number" id="gridScaleInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
       </label>
     </fieldset>
+    <!-- DJ Logo Controls -->
+    <fieldset style="margin-top: 10px; border: 1px solid #555; padding: 5px;">
+      <legend>DJ Logo Controls</legend>
+      <label><input type="checkbox" id="logoEnabled"> Show DJ Logo</label>
+      <label>Logo Scale:
+        <input type="range" id="logoScaleSlider" min="10" max="300" value="100">
+        <input type="number" id="logoScaleInput" min="10" max="300" value="100" style="width:50px; margin-left:5px;">
+      </label>
+      <label>Logo Alpha:
+        <input type="range" id="logoAlphaSlider" min="0" max="1" step="0.01" value="1">
+        <input type="number" id="logoAlphaInput" min="0" max="1" step="0.01" value="1" style="width:50px; margin-left:5px;">
+      </label>
+      <label>Use as Mask:
+        <input type="checkbox" id="logoMask">
+      </label>
+    </fieldset>
   </div>
 
-  <!-- Full-screen canvas -->
   <canvas id="canvas"></canvas>
   
   <script>
@@ -141,10 +150,7 @@
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
-    // --- Control modes ---
-    // Default mode is MIDI.
-    // In MIDI mode, parameter values come from MIDI CC messages.
-    // In GUI mode they come from on-screen sliders.
+    // If you keep the same structure from earlier:
     let controlMode = "MIDI";
     const toggleButton = document.getElementById("toggleMode");
     const guiControls = document.getElementById("guiControls");
@@ -163,8 +169,7 @@
       currentModeElem.textContent = controlMode;
     });
 
-    // --- MIDI Setup ---
-    // Default values for CCs 35-42 (if no messages arrive, we’re not left in the lurch)
+    // MIDI Setup
     const midiCCValues = {};
     for (let cc = 35; cc <= 42; cc++) {
       midiCCValues[cc] = 64;
@@ -172,7 +177,7 @@
     if (navigator.requestMIDIAccess) {
       navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
     } else {
-      console.log("WebMIDI is not supported. Stick with the GUI, old-timer.");
+      console.log("WebMIDI is not supported.");
     }
     function onMIDISuccess(midiAccess) {
       for (let input of midiAccess.inputs.values()) {
@@ -180,10 +185,9 @@
       }
     }
     function onMIDIFailure() {
-      console.log("Failed to access MIDI devices. Check your cables or your fate.");
+      console.log("Failed to access MIDI devices.");
     }
     function getMIDIMessage(message) {
-      // Look for MIDI Control Change messages (0xB0)
       if ((message.data[0] & 0xF0) === 0xB0) {
         const cc = message.data[1];
         const value = message.data[2];
@@ -193,20 +197,23 @@
       }
     }
 
-    // --- Utility function: map one range to another ---
+    // Map one range to another
     function mapRange(value, inMin, inMax, outMin, outMax) {
       return outMin + ((value - inMin) / (inMax - inMin)) * (outMax - outMin);
     }
 
-    // Camera distance for a simple perspective projection
     const cameraZ = 500;
 
-    // --- Animation Loop ---
+    // Load DJ logo image
+    const djLogo = new Image();
+    // Replace with your own file name/path
+    djLogo.src = "DJLogo.png"; 
+
+    // The animation
     function animate(time) {
       const t = time / 1000; // seconds
 
-      // Retrieve parameter values depending on control mode.
-      // Values are in the MIDI range (0–127) and then mapped.
+      // Grab param values from GUI or MIDI
       let cc35, cc36, cc37, cc38, cc39, cc40, cc41, cc42;
       if (controlMode === "GUI") {
         cc35 = parseInt(document.getElementById("waveSpeedSlider").value);
@@ -218,7 +225,6 @@
         cc41 = parseInt(document.getElementById("yOffsetSlider").value);
         cc42 = parseInt(document.getElementById("hueSlider").value);
       } else {
-        // In MIDI mode, use incoming MIDI CC values (or default 64)
         cc35 = midiCCValues[35] !== undefined ? midiCCValues[35] : 64;
         cc36 = midiCCValues[36] !== undefined ? midiCCValues[36] : 64;
         cc37 = midiCCValues[37] !== undefined ? midiCCValues[37] : 64;
@@ -229,7 +235,6 @@
         cc42 = midiCCValues[42] !== undefined ? midiCCValues[42] : 64;
       }
 
-      // Map the raw CC values to our desired parameter ranges.
       const waveSpeed    = mapRange(cc35, 0, 127, 0.5, 3.0);
       const waveAmp      = mapRange(cc36, 0, 127, 10, 100);
       const lineWidth    = mapRange(cc37, 0, 127, 0.5, 5);
@@ -237,29 +242,28 @@
       const gridDensity  = Math.floor(mapRange(cc39, 0, 127, 10, 50));
       const xOffset      = mapRange(cc40, 0, 127, -canvas.width / 4, canvas.width / 4);
       const yOffset      = mapRange(cc41, 0, 127, -canvas.height / 4, canvas.height / 4);
-      // Base hue (from CC42) before LFO modulation
-      let baseHue = mapRange(cc42, 0, 127, 0, 360);
+      let baseHue        = mapRange(cc42, 0, 127, 0, 360);
 
-      // --- LFO modulation (always read from GUI controls) ---
+      // LFO
       const lfoEnabled = document.getElementById("lfoEnabled").checked;
       const lfoRateVal = parseInt(document.getElementById("lfoRateSlider").value);
       const lfoDepthVal = parseInt(document.getElementById("lfoDepthSlider").value);
       const lfoRate = mapRange(lfoRateVal, 0, 127, 0.1, 2.0);
       const lfoDepth = mapRange(lfoDepthVal, 0, 127, 0, 50);
       if (lfoEnabled) {
-        // Modulate the base hue with the LFO—a neat little sine-based offset.
         baseHue = (baseHue + lfoDepth * Math.sin(t * lfoRate) + 360) % 360;
       }
 
+      // Hue from text input
       const hueHex = document.getElementById("hueHexInput").value.trim();
       const useHex = hueHex !== "" && /^#([0-9A-Fa-f]{6})$/.test(hueHex);
 
-      // Display Controls: background hue and grid scale.
+      // Display controls
       const bgHueVal = parseInt(document.getElementById("bgHueSlider").value);
       const bgHueHex = document.getElementById("bgHueHexInput").value.trim();
       const useBgHex = bgHueHex !== "" && /^#([0-9A-Fa-f]{6})$/.test(bgHueHex);
       let bgColor;
-      if(useBgHex) {
+      if (useBgHex) {
         bgColor = bgHueHex;
       } else {
         const bgHueDegrees = mapRange(bgHueVal, 0, 127, 0, 360);
@@ -268,11 +272,11 @@
       const gridScaleVal = parseInt(document.getElementById("gridScaleSlider").value);
       const scaledGridSize = mapRange(gridScaleVal, 0, 127, 100, 800);
 
-      // Clear the canvas with the new background color
+      // Clear
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Set drawing style
+      // Stroke style
       if (useHex) {
         ctx.strokeStyle = hueHex;
       } else {
@@ -280,8 +284,8 @@
       }
       ctx.lineWidth = lineWidth;
 
-      // Glow FX setup
-      if(document.getElementById("glowEnabled").checked){
+      // Glow
+      if (document.getElementById("glowEnabled").checked) {
         let glowIntensity = parseInt(document.getElementById("glowIntensitySlider").value);
         ctx.shadowBlur = glowIntensity;
         ctx.shadowColor = useHex ? hueHex : "hsl(" + baseHue + ", 80%, 50%)";
@@ -290,79 +294,140 @@
         ctx.shadowColor = "transparent";
       }
 
-      // Define the physical size of our grid using the scaled grid size
+      // Draw grid
       const gridSize = scaledGridSize;
       const halfGrid = gridSize / 2;
       const spacing = gridSize / (gridDensity - 1);
 
-      // Precompute cosine and sine for grid rotation.
       const cosR = Math.cos(gridRotation);
       const sinR = Math.sin(gridRotation);
 
-      // Calculate grid points with a wave function for a retro pulsing effect.
       const gridPoints = [];
       for (let i = 0; i < gridDensity; i++) {
         gridPoints[i] = [];
         for (let j = 0; j < gridDensity; j++) {
-          // Compute grid coordinates centered at (0,0)
           const x = -halfGrid + j * spacing;
           const y = -halfGrid + i * spacing;
-          
-          // Rotate the grid point
           const xRot = x * cosR - y * sinR;
           const yRot = x * sinR + y * cosR;
           
-          // Use a radial sine wave for z displacement
           const dist = Math.sqrt(xRot * xRot + yRot * yRot);
           const waveFactor = 0.05;
           const z = waveAmp * Math.sin(dist * waveFactor - t * waveSpeed);
           
-          // Apply a simple perspective projection
           const factor = cameraZ / (cameraZ + z);
           let screenX = xRot * factor + canvas.width / 2 + xOffset;
           let screenY = yRot * factor + canvas.height / 2 + yOffset;
 
-          if(document.getElementById("noiseEnabled").checked){
+          if (document.getElementById("noiseEnabled").checked){
             let noiseIntensity = parseFloat(document.getElementById("noiseIntensitySlider").value);
             screenX += (Math.random() * 2 - 1) * noiseIntensity;
             screenY += (Math.random() * 2 - 1) * noiseIntensity;
           }
-          
+
           gridPoints[i][j] = { x: screenX, y: screenY };
         }
       }
-      
-      // Draw horizontal grid lines
-      for (let i = 0; i < gridDensity; i++) {
-        ctx.beginPath();
-        for (let j = 0; j < gridDensity; j++) {
-          if (j === 0) {
-            ctx.moveTo(gridPoints[i][j].x, gridPoints[i][j].y);
-          } else {
-            ctx.lineTo(gridPoints[i][j].x, gridPoints[i][j].y);
-          }
+
+      // If using the DJ logo as a mask, let's save the current canvas state
+      // so we can restore it after applying the mask.
+      let useLogoMask = document.getElementById("logoMask").checked;
+      if(useLogoMask) {
+        // We'll draw the grid to an offscreen canvas first
+        // so we can then mask it with the logo.
+        const offscreen = document.createElement('canvas');
+        offscreen.width = canvas.width;
+        offscreen.height = canvas.height;
+        const offCtx = offscreen.getContext('2d');
+        
+        // Fill offscreen with transparent
+        offCtx.clearRect(0, 0, offscreen.width, offscreen.height);
+        
+        // Copy current stroke style & lineWidth to offscreen context
+        offCtx.strokeStyle = ctx.strokeStyle;
+        offCtx.lineWidth = ctx.lineWidth;
+        offCtx.shadowBlur = ctx.shadowBlur;
+        offCtx.shadowColor = ctx.shadowColor;
+        
+        // Draw the grid lines onto the offscreen canvas
+        drawGridLines(offCtx, gridPoints, gridDensity);
+
+        // Now apply the mask by drawing the logo with globalCompositeOperation = 'destination-in'
+        if(djLogo.complete) {
+          offCtx.save();
+          const logoScaleSliderVal = parseInt(document.getElementById('logoScaleSlider').value);
+          const logoAlpha = parseFloat(document.getElementById('logoAlphaSlider').value);
+          
+          // We'll place the logo roughly centered
+          let logoWidth = djLogo.width * (logoScaleSliderVal / 100);
+          let logoHeight = djLogo.height * (logoScaleSliderVal / 100);
+          let logoX = (offscreen.width - logoWidth) / 2;
+          let logoY = (offscreen.height - logoHeight) / 2;
+          
+          offCtx.globalCompositeOperation = 'destination-in';
+          offCtx.globalAlpha = logoAlpha; 
+          offCtx.drawImage(djLogo, logoX, logoY, logoWidth, logoHeight);
+          offCtx.restore();
         }
-        ctx.stroke();
+
+        // Finally, draw the result onto the main canvas
+        ctx.drawImage(offscreen, 0, 0);
+        
+      } else {
+        // Not using a mask, just draw directly to main canvas
+        drawGridLines(ctx, gridPoints, gridDensity);
       }
-      
-      // Draw vertical grid lines
-      for (let j = 0; j < gridDensity; j++) {
-        ctx.beginPath();
-        for (let i = 0; i < gridDensity; i++) {
-          if (i === 0) {
-            ctx.moveTo(gridPoints[i][j].x, gridPoints[i][j].y);
-          } else {
-            ctx.lineTo(gridPoints[i][j].x, gridPoints[i][j].y);
-          }
-        }
-        ctx.stroke();
+
+      // If we want to simply overlay the DJ logo (without masking):
+      let logoEnabled = document.getElementById("logoEnabled").checked;
+      if(logoEnabled && !useLogoMask && djLogo.complete) {
+        let logoScaleSliderVal = parseInt(document.getElementById("logoScaleSlider").value);
+        let logoAlpha = parseFloat(document.getElementById("logoAlphaSlider").value);
+        
+        let logoWidth = djLogo.width * (logoScaleSliderVal / 100);
+        let logoHeight = djLogo.height * (logoScaleSliderVal / 100);
+        let logoX = (canvas.width - logoWidth) / 2;
+        let logoY = (canvas.height - logoHeight) / 2;
+        
+        ctx.save();
+        ctx.globalAlpha = logoAlpha;
+        ctx.drawImage(djLogo, logoX, logoY, logoWidth, logoHeight);
+        ctx.restore();
       }
-      
-      // Request the next frame—a steady beat for our retro visuals.
+
       requestAnimationFrame(animate);
     }
 
-    // Sync sliders with manual numeric inputs for GUI controls
+    // Helper function: draw horizontal & vertical lines from gridPoints
+    function drawGridLines(context, gridPts, density) {
+      // Horizontal lines
+      for (let i = 0; i < density; i++) {
+        context.beginPath();
+        for (let j = 0; j < density; j++) {
+          if (j === 0) {
+            context.moveTo(gridPts[i][j].x, gridPts[i][j].y);
+          } else {
+            context.lineTo(gridPts[i][j].x, gridPts[i][j].y);
+          }
+        }
+        context.stroke();
+      }
+      
+      // Vertical lines
+      for (let j = 0; j < density; j++) {
+        context.beginPath();
+        for (let i = 0; i < density; i++) {
+          if (i === 0) {
+            context.moveTo(gridPts[i][j].x, gridPts[i][j].y);
+          } else {
+            context.lineTo(gridPts[i][j].x, gridPts[i][j].y);
+          }
+        }
+        context.stroke();
+      }
+    }
+
+    // Sync function
     function syncSliderAndInput(sliderId, inputId) {
       const slider = document.getElementById(sliderId);
       const input = document.getElementById(inputId);
@@ -370,6 +435,7 @@
       input.addEventListener('input', () => { slider.value = input.value; });
     }
 
+    // Sync existing controls
     syncSliderAndInput('waveSpeedSlider', 'waveSpeedInput');
     syncSliderAndInput('waveAmpSlider', 'waveAmpInput');
     syncSliderAndInput('lineWidthSlider', 'lineWidthInput');
@@ -382,6 +448,9 @@
     syncSliderAndInput('noiseIntensitySlider', 'noiseIntensityInput');
     syncSliderAndInput('bgHueSlider', 'bgHueInput');
     syncSliderAndInput('gridScaleSlider', 'gridScaleInput');
+    // New DJ Logo controls
+    syncSliderAndInput('logoScaleSlider', 'logoScaleInput');
+    syncSliderAndInput('logoAlphaSlider', 'logoAlphaInput');
 
     requestAnimationFrame(animate);
   </script>
