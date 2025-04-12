@@ -5,7 +5,7 @@
   <title>Pulsing Retro Wireframe + DJ Logo</title>
   <style>
     /* Fill the screen with a black background */
-    body { margin: 0; overflow: hidden; background: #333333; }
+    body { margin: 0; overflow: hidden; background: black; }
     canvas { display: block; }
     
     /* Control panel overlay */
@@ -43,7 +43,7 @@
     
     <!-- GUI controls: hidden by default (only shown in GUI mode) -->
     <div id="guiControls" style="display: none;">
-      <!-- The usual 8 CC parameters -->
+      <!-- Other parameters here... -->
       <label>Wave Speed (CC35):
         <input type="range" id="waveSpeedSlider" min="0" max="127" value="64">
         <input type="number" id="waveSpeedInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
@@ -72,13 +72,24 @@
         <input type="range" id="yOffsetSlider" min="0" max="127" value="64">
         <input type="number" id="yOffsetInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
       </label>
-      <label>Base Hue (CC42):
-        <input type="range" id="hueSlider" min="0" max="127" value="64">
-        <input type="number" id="hueInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
-        <input type="text" id="hueHexInput" placeholder="#RRGGBB" style="width:70px; margin-left:5px;">
-      </label>
+      <!-- Replacing the single Hue slider with 3 knobs for grid (base) color -->
+      <fieldset style="margin: 5px 0;">
+        <legend>Grid Color (CC42)</legend>
+        <label>Hue:
+          <input type="range" id="baseHueSlider" min="0" max="360" value="180">
+          <input type="number" id="baseHueInput" min="0" max="360" value="180" style="width:50px; margin-left:5px;">
+        </label>
+        <label>Saturation:
+          <input type="range" id="baseSatSlider" min="0" max="100" value="80">
+          <input type="number" id="baseSatInput" min="0" max="100" value="80" style="width:50px; margin-left:5px;">
+        </label>
+        <label>Brightness:
+          <input type="range" id="baseLightSlider" min="0" max="100" value="50">
+          <input type="number" id="baseLightInput" min="0" max="100" value="50" style="width:50px; margin-left:5px;">
+        </label>
+      </fieldset>
     </div>
-    <!-- LFO controls (always shown) -->
+    <!-- LFO Controls (always shown) -->
     <fieldset style="margin-top: 10px; border: 1px solid #555; padding: 5px;">
       <legend>LFO Controls</legend>
       <label><input type="checkbox" id="lfoEnabled"> Enable LFO (modulates hue)</label>
@@ -106,14 +117,24 @@
         <input type="number" id="noiseIntensityInput" min="0" max="20" value="0" style="width:50px; margin-left:5px;">
       </label>
     </fieldset>
-    <!-- Display Controls -->
+    <!-- Display Controls: Background Color & Grid Scale -->
     <fieldset style="margin-top: 10px; border: 1px solid #555; padding: 5px;">
-      <legend>Display Controls</legend>
-      <label>Background Hue:
-        <input type="range" id="bgHueSlider" min="0" max="127" value="0">
-        <input type="number" id="bgHueInput" min="0" max="127" value="0" style="width:50px; margin-left:5px;">
-        <input type="text" id="bgHueHexInput" placeholder="#RRGGBB" style="width:70px; margin-left:5px;">
-      </label>
+      <legend>Background Color & Grid Scale</legend>
+      <fieldset style="margin: 5px 0;">
+        <legend>Background Color</legend>
+        <label>Hue:
+          <input type="range" id="bgHueSlider" min="0" max="360" value="0">
+          <input type="number" id="bgHueInput" min="0" max="360" value="0" style="width:50px; margin-left:5px;">
+        </label>
+        <label>Saturation:
+          <input type="range" id="bgSatSlider" min="0" max="100" value="0">
+          <input type="number" id="bgSatInput" min="0" max="100" value="0" style="width:50px; margin-left:5px;">
+        </label>
+        <label>Brightness:
+          <input type="range" id="bgLightSlider" min="0" max="100" value="0">
+          <input type="number" id="bgLightInput" min="0" max="100" value="0" style="width:50px; margin-left:5px;">
+        </label>
+      </fieldset>
       <label>Grid Scale:
         <input type="range" id="gridScaleSlider" min="0" max="127" value="64">
         <input type="number" id="gridScaleInput" min="0" max="127" value="64" style="width:50px; margin-left:5px;">
@@ -122,17 +143,17 @@
     <!-- DJ Logo Controls -->
     <fieldset style="margin-top: 10px; border: 1px solid #555; padding: 5px;">
       <legend>DJ Logo Controls</legend>
-      <label><input type="checkbox" id="logoEnabled"> Show DJ Logo</label>
+      <label><input type="checkbox" id="logoEnabled" checked> Show DJ Logo</label>
       <label>Logo Scale:
-        <input type="range" id="logoScaleSlider" min="10" max="300" value="100">
-        <input type="number" id="logoScaleInput" min="10" max="300" value="100" style="width:50px; margin-left:5px;">
+        <input type="range" id="logoScaleSlider" min="10" max="300" value="50">
+        <input type="number" id="logoScaleInput" min="10" max="300" value="50" style="width:50px; margin-left:5px;">
       </label>
       <label>Logo Alpha:
         <input type="range" id="logoAlphaSlider" min="0" max="1" step="0.01" value="1">
         <input type="number" id="logoAlphaInput" min="0" max="1" step="0.01" value="1" style="width:50px; margin-left:5px;">
       </label>
       <label>Use as Mask:
-        <input type="checkbox" id="logoMask">
+        <input type="checkbox" id="logoMask" checked>
       </label>
     </fieldset>
   </div>
@@ -150,7 +171,6 @@
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
-    // If you keep the same structure from earlier:
     let controlMode = "MIDI";
     const toggleButton = document.getElementById("toggleMode");
     const guiControls = document.getElementById("guiControls");
@@ -206,14 +226,13 @@
 
     // Load DJ logo image
     const djLogo = new Image();
-    // Replace with your own file name/path
     djLogo.src = "DJLogo.png"; 
 
-    // The animation
+    // The animation loop
     function animate(time) {
       const t = time / 1000; // seconds
 
-      // Grab param values from GUI or MIDI
+      // Retrieve parameter values from either GUI or MIDI
       let cc35, cc36, cc37, cc38, cc39, cc40, cc41, cc42;
       if (controlMode === "GUI") {
         cc35 = parseInt(document.getElementById("waveSpeedSlider").value);
@@ -223,7 +242,7 @@
         cc39 = parseInt(document.getElementById("gridDensitySlider").value);
         cc40 = parseInt(document.getElementById("xOffsetSlider").value);
         cc41 = parseInt(document.getElementById("yOffsetSlider").value);
-        cc42 = parseInt(document.getElementById("hueSlider").value);
+        cc42 = 64; // Not used now since grid color is from separate controls
       } else {
         cc35 = midiCCValues[35] !== undefined ? midiCCValues[35] : 64;
         cc36 = midiCCValues[36] !== undefined ? midiCCValues[36] : 64;
@@ -232,7 +251,7 @@
         cc39 = midiCCValues[39] !== undefined ? midiCCValues[39] : 64;
         cc40 = midiCCValues[40] !== undefined ? midiCCValues[40] : 64;
         cc41 = midiCCValues[41] !== undefined ? midiCCValues[41] : 64;
-        cc42 = midiCCValues[42] !== undefined ? midiCCValues[42] : 64;
+        cc42 = 64;
       }
 
       const waveSpeed    = mapRange(cc35, 0, 127, 0.5, 3.0);
@@ -242,59 +261,52 @@
       const gridDensity  = Math.floor(mapRange(cc39, 0, 127, 10, 50));
       const xOffset      = mapRange(cc40, 0, 127, -canvas.width / 4, canvas.width / 4);
       const yOffset      = mapRange(cc41, 0, 127, -canvas.height / 4, canvas.height / 4);
-      let baseHue        = mapRange(cc42, 0, 127, 0, 360);
 
-      // LFO
+      // LFO for grid color modulation (if enabled)
       const lfoEnabled = document.getElementById("lfoEnabled").checked;
       const lfoRateVal = parseInt(document.getElementById("lfoRateSlider").value);
       const lfoDepthVal = parseInt(document.getElementById("lfoDepthSlider").value);
       const lfoRate = mapRange(lfoRateVal, 0, 127, 0.1, 2.0);
       const lfoDepth = mapRange(lfoDepthVal, 0, 127, 0, 50);
+
+      // Base grid color from 3 knobs (with optional LFO modulation)
+      let baseHue = parseInt(document.getElementById("baseHueSlider").value);
+      let baseSat = parseInt(document.getElementById("baseSatSlider").value);
+      let baseLight = parseInt(document.getElementById("baseLightSlider").value);
       if (lfoEnabled) {
         baseHue = (baseHue + lfoDepth * Math.sin(t * lfoRate) + 360) % 360;
       }
+      const baseColor = `hsl(${baseHue}, ${baseSat}%, ${baseLight}%)`;
 
-      // Hue from text input
-      const hueHex = document.getElementById("hueHexInput").value.trim();
-      const useHex = hueHex !== "" && /^#([0-9A-Fa-f]{6})$/.test(hueHex);
+      // Background color from 3 knobs
+      const bgHue = parseInt(document.getElementById("bgHueSlider").value);
+      const bgSat = parseInt(document.getElementById("bgSatSlider").value);
+      const bgLight = parseInt(document.getElementById("bgLightSlider").value);
+      const bgColor = `hsl(${bgHue}, ${bgSat}%, ${bgLight}%)`;
 
-      // Display controls
-      const bgHueVal = parseInt(document.getElementById("bgHueSlider").value);
-      const bgHueHex = document.getElementById("bgHueHexInput").value.trim();
-      const useBgHex = bgHueHex !== "" && /^#([0-9A-Fa-f]{6})$/.test(bgHueHex);
-      let bgColor;
-      if (useBgHex) {
-        bgColor = bgHueHex;
-      } else {
-        const bgHueDegrees = mapRange(bgHueVal, 0, 127, 0, 360);
-        bgColor = "hsl(" + bgHueDegrees + ", 50%, 10%)";
-      }
+      // Grid Scale
       const gridScaleVal = parseInt(document.getElementById("gridScaleSlider").value);
       const scaledGridSize = mapRange(gridScaleVal, 0, 127, 100, 800);
 
-      // Clear
+      // Clear canvas with background color
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Stroke style
-      if (useHex) {
-        ctx.strokeStyle = hueHex;
-      } else {
-        ctx.strokeStyle = "hsl(" + baseHue + ", 80%, 50%)";
-      }
+      // Set stroke style for grid lines using base color
+      ctx.strokeStyle = baseColor;
       ctx.lineWidth = lineWidth;
 
-      // Glow
+      // Glow effect
       if (document.getElementById("glowEnabled").checked) {
         let glowIntensity = parseInt(document.getElementById("glowIntensitySlider").value);
         ctx.shadowBlur = glowIntensity;
-        ctx.shadowColor = useHex ? hueHex : "hsl(" + baseHue + ", 80%, 50%)";
+        ctx.shadowColor = baseColor;
       } else {
         ctx.shadowBlur = 0;
         ctx.shadowColor = "transparent";
       }
 
-      // Draw grid
+      // Draw grid using scaled grid size
       const gridSize = scaledGridSize;
       const halfGrid = gridSize / 2;
       const spacing = gridSize / (gridDensity - 1);
@@ -329,38 +341,29 @@
         }
       }
 
-      // If using the DJ logo as a mask, let's save the current canvas state
-      // so we can restore it after applying the mask.
+      // Draw grid lines (with or without using the DJ logo as a mask)
       let useLogoMask = document.getElementById("logoMask").checked;
       if(useLogoMask) {
-        // We'll draw the grid to an offscreen canvas first
-        // so we can then mask it with the logo.
         const offscreen = document.createElement('canvas');
         offscreen.width = canvas.width;
         offscreen.height = canvas.height;
         const offCtx = offscreen.getContext('2d');
         
-        // Fill offscreen with transparent
         offCtx.clearRect(0, 0, offscreen.width, offscreen.height);
-        
-        // Copy current stroke style & lineWidth to offscreen context
         offCtx.strokeStyle = ctx.strokeStyle;
         offCtx.lineWidth = ctx.lineWidth;
         offCtx.shadowBlur = ctx.shadowBlur;
         offCtx.shadowColor = ctx.shadowColor;
         
-        // Draw the grid lines onto the offscreen canvas
         drawGridLines(offCtx, gridPoints, gridDensity);
 
-        // Now apply the mask by drawing the logo with globalCompositeOperation = 'destination-in'
         if(djLogo.complete) {
           offCtx.save();
-          const logoScaleSliderVal = parseInt(document.getElementById('logoScaleSlider').value);
+          const logoScaleVal = parseInt(document.getElementById('logoScaleSlider').value);
           const logoAlpha = parseFloat(document.getElementById('logoAlphaSlider').value);
           
-          // We'll place the logo roughly centered
-          let logoWidth = djLogo.width * (logoScaleSliderVal / 100);
-          let logoHeight = djLogo.height * (logoScaleSliderVal / 100);
+          let logoWidth = djLogo.width * (logoScaleVal / 100);
+          let logoHeight = djLogo.height * (logoScaleVal / 100);
           let logoX = (offscreen.width - logoWidth) / 2;
           let logoY = (offscreen.height - logoHeight) / 2;
           
@@ -369,23 +372,20 @@
           offCtx.drawImage(djLogo, logoX, logoY, logoWidth, logoHeight);
           offCtx.restore();
         }
-
-        // Finally, draw the result onto the main canvas
         ctx.drawImage(offscreen, 0, 0);
         
       } else {
-        // Not using a mask, just draw directly to main canvas
         drawGridLines(ctx, gridPoints, gridDensity);
       }
 
-      // If we want to simply overlay the DJ logo (without masking):
+      // Overlay DJ Logo if enabled (and not used as mask)
       let logoEnabled = document.getElementById("logoEnabled").checked;
       if(logoEnabled && !useLogoMask && djLogo.complete) {
-        let logoScaleSliderVal = parseInt(document.getElementById("logoScaleSlider").value);
+        let logoScaleVal = parseInt(document.getElementById("logoScaleSlider").value);
         let logoAlpha = parseFloat(document.getElementById("logoAlphaSlider").value);
         
-        let logoWidth = djLogo.width * (logoScaleSliderVal / 100);
-        let logoHeight = djLogo.height * (logoScaleSliderVal / 100);
+        let logoWidth = djLogo.width * (logoScaleVal / 100);
+        let logoHeight = djLogo.height * (logoScaleVal / 100);
         let logoX = (canvas.width - logoWidth) / 2;
         let logoY = (canvas.height - logoHeight) / 2;
         
@@ -398,9 +398,7 @@
       requestAnimationFrame(animate);
     }
 
-    // Helper function: draw horizontal & vertical lines from gridPoints
     function drawGridLines(context, gridPts, density) {
-      // Horizontal lines
       for (let i = 0; i < density; i++) {
         context.beginPath();
         for (let j = 0; j < density; j++) {
@@ -413,7 +411,6 @@
         context.stroke();
       }
       
-      // Vertical lines
       for (let j = 0; j < density; j++) {
         context.beginPath();
         for (let i = 0; i < density; i++) {
@@ -427,7 +424,6 @@
       }
     }
 
-    // Sync function
     function syncSliderAndInput(sliderId, inputId) {
       const slider = document.getElementById(sliderId);
       const input = document.getElementById(inputId);
@@ -435,7 +431,7 @@
       input.addEventListener('input', () => { slider.value = input.value; });
     }
 
-    // Sync existing controls
+    // Sync controls for all new knobs
     syncSliderAndInput('waveSpeedSlider', 'waveSpeedInput');
     syncSliderAndInput('waveAmpSlider', 'waveAmpInput');
     syncSliderAndInput('lineWidthSlider', 'lineWidthInput');
@@ -443,12 +439,15 @@
     syncSliderAndInput('gridDensitySlider', 'gridDensityInput');
     syncSliderAndInput('xOffsetSlider', 'xOffsetInput');
     syncSliderAndInput('yOffsetSlider', 'yOffsetInput');
-    syncSliderAndInput('hueSlider', 'hueInput');
+    syncSliderAndInput('baseHueSlider', 'baseHueInput');
+    syncSliderAndInput('baseSatSlider', 'baseSatInput');
+    syncSliderAndInput('baseLightSlider', 'baseLightInput');
     syncSliderAndInput('glowIntensitySlider', 'glowIntensityInput');
     syncSliderAndInput('noiseIntensitySlider', 'noiseIntensityInput');
     syncSliderAndInput('bgHueSlider', 'bgHueInput');
+    syncSliderAndInput('bgSatSlider', 'bgSatInput');
+    syncSliderAndInput('bgLightSlider', 'bgLightInput');
     syncSliderAndInput('gridScaleSlider', 'gridScaleInput');
-    // New DJ Logo controls
     syncSliderAndInput('logoScaleSlider', 'logoScaleInput');
     syncSliderAndInput('logoAlphaSlider', 'logoAlphaInput');
 
